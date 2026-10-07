@@ -27,6 +27,13 @@ test('an unknown measure is a loud error', () => {
   expect(() => parseStep(FILE.replace('measure: guess', 'measure: vibes'))).toThrow('measure')
 })
 
+test('a number field that is not a number is a loud error naming the field', () => {
+  expect(() => parseStep(FILE.replace('need: 8', 'need: eight'))).toThrow('field "need" is not a number')
+  expect(() => parseStep(FILE.replace('need: 8', 'need:'))).toThrow('field "need" is not a number')
+  expect(() => parseStep(FILE.replace('window: 10', 'window: 2.5'))).toThrow('field "window" is not a number')
+  expect(() => parseStep(FILE.replace('number: 2', 'number: two'))).toThrow('field "number" is not a number')
+})
+
 // A test has no file access, so loadLadder reads from a map in memory here.
 // Task 8's wiring tests read the real step files, through the plugin.
 const ROOT = '/plugin'

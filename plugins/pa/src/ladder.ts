@@ -28,15 +28,22 @@ export function parseStep(text: string): StepDef {
     if (value === undefined) throw new Error(`step file: missing field "${key}"`)
     return value
   }
+  const whole = (key: string): number => {
+    const value = field(key)
+    const number = Number(value)
+    // Number('') is 0, so a blank value must be rejected on its own.
+    if (value === '' || !Number.isInteger(number)) throw new Error(`step file: field "${key}" is not a number`)
+    return number
+  }
   const measure = field('measure') as Measure
   if (!MEASURES.includes(measure)) throw new Error(`step file: unknown measure "${measure}"`)
   return {
-    number: Number(field('number')),
+    number: whole('number'),
     name: field('name'),
     line: field('line'),
     measure,
-    window: Number(field('window')),
-    need: Number(field('need')),
+    window: whole('window'),
+    need: whole('need'),
     instructions: match[2].trim(),
   }
 }
