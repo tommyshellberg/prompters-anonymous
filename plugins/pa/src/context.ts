@@ -8,10 +8,10 @@ export const REFLECT_NOW =
   'Reflect now: after you answer, add one or two gentle sentences noticing what kind of thinking the user just handed to you (planning, debugging, writing code, or understanding). Be warm and never shaming. Close with encouragement, for example: "That\'s OK. We\'ll take it back in small steps."'
 
 export const ASK_ADMISSION =
-  'At a natural point in this reply, ask the user if they are ready to admit, in their own words, how much of their thinking they have been handing to AI. If they say it, call the record_admission tool with their exact words, then congratulate them on finishing step 1.'
+  'At a natural point in this reply, ask the user if they are ready to admit, in their own words, how much of their thinking they have been handing to AI. If they say it, call the mcp__pa__record_admission tool with their exact words, then congratulate them on finishing step 1.'
 
 export const EXPLAIN_FIRST =
-  'Before anything else: you changed code earlier and the user has not explained it yet. Ask them, in one short line, to explain in a sentence or two what changed and why. Then score it with record_explanation.'
+  'Before anything else: you changed code earlier and the user has not explained it yet. Ask them, in one short line, to explain in a sentence or two what changed and why. Then score it with mcp__pa__record_explanation.'
 
 export type ContextInput = {
   status: Status

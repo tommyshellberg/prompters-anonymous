@@ -63,6 +63,13 @@ describe('buildContext', () => {
   })
 })
 
+describe('tool names', () => {
+  test('texts name the recording tools by their full name', () => {
+    expect(ASK_ADMISSION).toContain('mcp__pa__record_admission')
+    expect(EXPLAIN_FIRST).toContain('mcp__pa__record_explanation')
+  })
+})
+
 describe('shouldReflect', () => {
   const prompts = (n: number) => Array.from({ length: n }, (_, i) => makeEvent(i + 10, { kind: 'prompt', step: 1, category: 'code' }))
 
