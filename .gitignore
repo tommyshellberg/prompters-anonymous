@@ -1,0 +1,5 @@
+.DS_Store
+
+# Superpowers output: specs, plans, and subagent scratch. Never committed.
+docs/superpowers/
+.superpowers/
