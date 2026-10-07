@@ -1,17 +1,8 @@
 import type { PaEvent } from './events.ts'
+import type { StepDef } from './ladder.ts'
 import { DAY_MS, WEEK_MS, localDay, startOfLocalDay } from './time.ts'
 
-export type Measure = 'reflection' | 'guess' | 'explanation' | 'none'
-
-export type StepDef = {
-  number: number
-  name: string
-  line: string
-  measure: Measure
-  window: number
-  need: number
-  instructions: string
-}
+export type { Measure, StepDef } from './ladder.ts'
 
 export type Progress = { good: number; window: number; need: number }
 
