@@ -1,0 +1,8 @@
+{
+  "name": "pa",
+  "displayName": "Prompters Anonymous",
+  "version": "0.1.0",
+  "description": "A 12-step program for getting your thinking back from AI, one small step at a time.",
+  "author": { "name": "Prompters Anonymous", "url": "https://promptersanon.com" },
+  "homepage": "https://promptersanon.com"
+}

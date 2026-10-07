@@ -1,0 +1,7 @@
+{
+  "name": "promptersanon",
+  "owner": { "name": "Prompters Anonymous" },
+  "plugins": [
+    { "name": "pa", "source": "./plugins/pa", "description": "A 12-step program for getting your thinking back from AI." }
+  ]
+}
