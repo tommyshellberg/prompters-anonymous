@@ -15,8 +15,6 @@ You need Claude Code 2.1.290 or newer. Mods do not work on older versions.
 
 Then run `/pa setup`. Claude welcomes you and asks why you installed this. It saves your answer, word for word, so it can remind you on hard days.
 
-Note: on Team or Enterprise plans, an admin can block mods. If yours does, this one will not load.
-
 ## Commands
 
 | Command | What it does |
@@ -39,7 +37,7 @@ Steps 1 to 3 are ready. Steps 4 to 12 are named placeholders for now.
 
 ## Privacy
 
-The log lives only on your machine. It never leaves it. It is kept in the mod's own store file, inside your Claude Code config directory. The mod makes no network calls.
+The mod sends nothing anywhere. The log stays in the mod's own store file, inside your Claude Code config directory, on your machine. What you type to Claude in chat, including your why, goes to Claude as usual.
 
 For each prompt, the log keeps three things:
 
