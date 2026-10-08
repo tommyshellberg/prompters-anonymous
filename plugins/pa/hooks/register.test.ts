@@ -302,6 +302,20 @@ test('/pa up refuses when not ready', async ($, on) => {
   expect(String(text)).toContain('Not yet')
 })
 
+test('/pa up with a full bar on step 3 says step 4 is not written yet', async ($, on) => {
+  const explanations = Array.from({ length: 10 }, (_, i) => makeEvent(Date.now() - 800 + i, { kind: 'explanation', score: 'clear' }))
+  seed(on, 3, explanations)
+  const { text } = await pa($, 'up')
+  expect(text).toBe("You've earned this one. Step 4 isn't written yet, so stay here for now. 💛")
+})
+
+test('/pa up on step 3 with a short bar still says not yet', async ($, on) => {
+  const explanations = Array.from({ length: 10 }, (_, i) => makeEvent(Date.now() - 800 + i, { kind: 'explanation', score: i < 7 ? 'clear' : 'missed' }))
+  seed(on, 3, explanations)
+  const { text } = await pa($, 'up')
+  expect(String(text)).toContain('Not yet')
+})
+
 test('/pa up moves up when ready', async ($, on) => {
   seed(on, 1)
   // Step 1 is ready on the admission alone. Reflections only fill the bar.

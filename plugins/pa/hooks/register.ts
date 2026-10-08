@@ -167,6 +167,11 @@ async function paCommand(io: Io, args: string): Promise<{ text: string }> {
   if (word === 'up') {
     if (!status.isReady) {
       const p = status.progress
+      const nextStep = c.steps.find(s => s.number === status.step + 1)
+      // The bar is full, but the next step has no content yet. Step 1 never lands here: step 2 is written.
+      if (p && p.good >= p.need && nextStep?.measure === 'none') {
+        return { text: `You've earned this one. Step ${nextStep.number} isn't written yet, so stay here for now. 💛` }
+      }
       return { text: `Not yet. ${stepLine(status, c.steps)}${p ? `\nYou need ${p.need} of the last ${p.window}.` : ''}\nYou're doing the work. Keep going. 💛` }
     }
     await addEvent(io, { kind: 'step', to: status.step + 1, how: 'up' })
