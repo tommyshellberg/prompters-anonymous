@@ -289,6 +289,26 @@ test('/clear drops an edit the user was never asked to explain', async ($, on) =
   expect(explains()).toBe(0)
 })
 
+const SHELL = { tool: 'Bash', command: "sed -i '' 's/a/b/' /tmp/x.ts" } as const
+
+test('a shell command on step 3 leads to one explain-it-back prompt at turn end', async ($, on) => {
+  const { explains } = explainHarness(on)
+  const { clock } = seed(on, 3)
+  await $.tool.call(SHELL)
+  await $.turn.complete(TURN_END)
+  await clock.settle()
+  expect(explains()).toBe(1)
+})
+
+test('a shell command on step 2 is not marked', async ($, on) => {
+  const { explains } = explainHarness(on)
+  const { clock } = seed(on, 2)
+  await $.tool.call(SHELL)
+  await $.turn.complete(TURN_END)
+  await clock.settle()
+  expect(explains()).toBe(0)
+})
+
 test('record_explanation rejects an unknown score', async ($, on) => {
   explainHarness(on)
   seed(on, 3)

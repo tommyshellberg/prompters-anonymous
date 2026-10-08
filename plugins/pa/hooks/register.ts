@@ -410,7 +410,8 @@ export const register: Register = on => {
     return next({ ...e, context: [...(e.context ?? []), ...added] })
   }).catch(letThrough)
 
-  on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
+  // Bash too: Claude often changes files with shell commands. Some Bash calls change nothing; asking then is a small cost.
+  on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit', 'Bash'] }, async ($, e, next) => {
     const ran = await next(e)
     if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
       const io: Io = {
