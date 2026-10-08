@@ -197,3 +197,15 @@ test('record_guess rejects an unknown score', async ($, on) => {
   const result = await $.tool.call({ tool: 'mcp__pa__record_guess', score: 'amazing' })
   expect(JSON.stringify(result)).toContain('close, partly, off, or skipped')
 })
+
+test('a step 1 user who has not admitted is asked for the admission once per session', async ($, on) => {
+  on('prompt.submit', async (_$, e) => ({ text: e.text, context: e.context }))
+  const now = Date.now()
+  seed(on, 1, [1, 2, 3].map(i => makeEvent(now - 800 + i, { kind: 'reflection' })))
+  let asks = 0
+  for (let i = 0; i < 40; i++) {
+    const r = await userPrompt($, `ask ${i}`)
+    if ((r.context ?? []).join('\n').includes('mcp__pa__record_admission')) asks++
+  }
+  expect(asks).toBe(1)
+})

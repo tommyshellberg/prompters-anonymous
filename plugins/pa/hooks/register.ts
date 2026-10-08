@@ -34,6 +34,7 @@ let ready: Promise<Ctx> | null = null
 let lastLine = ''
 let reflectedThisSession = false
 let readyMentioned = false
+let admissionAsked = false
 let explainPending = false
 
 /** Loads the ladder and opens the record on first use, from whichever hook runs first. */
@@ -249,6 +250,7 @@ export const register: Register = on => {
     }
     reflectedThisSession = false
     readyMentioned = false
+    admissionAsked = false
     $.ui.log(await welcome(io))
     return next(e)
   }).catch(letThrough)
@@ -327,7 +329,11 @@ export const register: Register = on => {
     }
     const mentionReady = status.isReady && !readyMentioned
     if (mentionReady) readyMentioned = true
-    const reflections = events.filter(ev => ev.kind === 'reflection').length + (reflectNow ? 1 : 0)
+    // buildContext asks for the admission whenever it sees 3 or more reflections. Show it 0 after the first ask, so the user is asked once per session.
+    const lifetimeReflections = events.filter(ev => ev.kind === 'reflection').length + (reflectNow ? 1 : 0)
+    const askAdmission = lifetimeReflections >= 3 && !status.hasAdmitted && status.effectiveStep === 1 && !admissionAsked
+    if (askAdmission) admissionAsked = true
+    const reflections = askAdmission ? lifetimeReflections : 0
     const added = buildContext({ status, steps: c.steps, reflectNow, mentionReady, explainPending, reflections })
     explainPending = false
     return next({ ...e, context: [...(e.context ?? []), ...added] })
