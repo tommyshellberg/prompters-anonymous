@@ -19,6 +19,10 @@ test('parses front matter and body', () => {
   })
 })
 
+test('a step file with Windows line endings parses the same', () => {
+  expect(parseStep(FILE.replace(/\n/g, '\r\n'))).toEqual(parseStep(FILE))
+})
+
 test('a missing field is a loud error naming the field', () => {
   expect(() => parseStep(FILE.replace('need: 8\n', ''))).toThrow('need')
 })

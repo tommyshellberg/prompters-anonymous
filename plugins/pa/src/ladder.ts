@@ -15,6 +15,8 @@ const MEASURES: readonly Measure[] = ['reflection', 'guess', 'explanation', 'non
 export const STEP_FILES: readonly string[] = Array.from({ length: 12 }, (_, i) => `steps/${String(i + 1).padStart(2, '0')}.md`)
 
 export function parseStep(text: string): StepDef {
+  // Git for Windows may check the step files out with \r\n line endings.
+  text = text.replace(/\r\n?/g, '\n')
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text)
   if (!match) throw new Error('step file: missing --- front matter')
   const fields = new Map(
