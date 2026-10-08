@@ -142,14 +142,14 @@ const tapePrompt = (status: Status, steps: readonly StepDef[]) =>
     `The user asked to step down from step ${status.step} to step ${status.step - 1} of Prompters Anonymous.`,
     'Play the tape to the end with them, gently and briefly: ask what next week looks like if they step down, then next month, then six months from now.',
     `Remind them why they started, in their words: "${status.why}".`,
-    'Then let them decide. Both choices are fine; say so. If they still want to step down, call confirm_step_down. If not, encourage them.',
+    'Then let them decide. Both choices are fine; say so. If they still want to step down, call mcp__pa__confirm_step_down. If not, encourage them.',
   ].join('\n')
 
 const tooManyRoughDaysPrompt = (status: Status) =>
   [
     `The user has taken ${status.roughDaysThisWeek} rough days this week in Prompters Anonymous.`,
     `Gently, with no judgment, play the tape with them: what does the next month look like at this pace? Remind them of their why: "${status.why}".`,
-    'Then ask whether stepping down one step for a while might fit better. It is a question, not a rule. If they say yes, call confirm_step_down.',
+    'Then ask whether stepping down one step for a while might fit better. It is a question, not a rule. If they say yes, call mcp__pa__confirm_step_down.',
   ].join('\n')
 
 /** `/pa <word>`: the report, setup, and (from Task 12) up, down and rough-day. */

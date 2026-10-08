@@ -332,7 +332,7 @@ test('/pa down starts the play-the-tape turn a moment later, not inside the comm
   await clock.advance(100)
   expect(sent.length).toBe(1)
   expect(sent[0]).toContain('step 3 to step 2')
-  expect(sent[0]).toContain('confirm_step_down')
+  expect(sent[0]).toContain('call mcp__pa__confirm_step_down')
 })
 
 test('the third rough day this week starts a gentle turn, the second does not', async ($, on) => {
@@ -344,6 +344,7 @@ test('the third rough day this week starts a gentle turn, the second does not', 
   await clock.advance(100)
   expect(sent.length).toBe(1)
   expect(sent[0]).toContain('3 rough days this week')
+  expect(sent[0]).toContain('call mcp__pa__confirm_step_down')
 })
 
 test('the second rough day this week starts no turn', async ($, on) => {
