@@ -93,8 +93,28 @@ test('roll-up leaves recent sessions and its own session alone', async () => {
   await store.set('events:recent', recent)
   await store.set('events:me', [makeEvent(1 * DAY, { kind: 'prompt', step: 1, category: 'code' })])
   await rollUp(store, 'me', 40 * DAY)
-  expect(((await store.get('events:recent')) as PaEvent[]).length).toBe(1)
-  expect(((await store.get('events:me')) as PaEvent[]).length).toBe(1)
+  const promptsAt = async (key: string) => ((await store.get(key)) as PaEvent[]).filter(e => e.kind === 'prompt').length
+  expect(await promptsAt('events:recent')).toBe(1)
+  expect(await promptsAt('events:me')).toBe(1)
+})
+
+test('a failed save does not stop later adds or all()', async () => {
+  const store = memoryStore()
+  let failNext = true
+  const flaky: StoreLike = {
+    ...store,
+    set: async (key, value) => {
+      if (failNext) {
+        failNext = false
+        throw new Error('store full')
+      }
+      await store.set(key, value)
+    },
+  }
+  const a = new EventRecord(flaky, 'a')
+  await expect(a.add(makeEvent(1, { kind: 'reflection' }))).rejects.toThrow('store full')
+  await a.add(makeEvent(2, { kind: 'reflection' }))
+  expect((await a.all()).map(e => e.at)).toEqual([2])
 })
 
 test('running roll-up twice gives the same totals', async () => {

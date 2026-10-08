@@ -30,11 +30,13 @@ export class EventRecord {
   add(event: PaEvent): Promise<void> {
     // Chain writes so two quick adds in one session can't overwrite each other.
     // Re-read the key every time: another session may have rolled it up since our last write.
-    this.writing = this.writing.then(async () => {
+    const next = this.writing.then(async () => {
       const mine = await listAt(this.store, EVENTS + this.sessionId)
       await this.store.set(EVENTS + this.sessionId, [...mine, event])
     })
-    return this.writing
+    // A failed write goes to this caller only. The chain stays alive for later adds.
+    this.writing = next.catch(() => {})
+    return next
   }
 
   async all(): Promise<PaEvent[]> {
