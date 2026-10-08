@@ -138,7 +138,7 @@ export const SETUP_PROMPT = [
   '5. Tell them step 1 asks nothing of them except to notice. The line above the prompt shows their progress.',
 ].join('\n')
 
-const tapePrompt = (status: Status, steps: readonly StepDef[]) =>
+const tapePrompt = (status: Status) =>
   [
     `The user asked to step down from step ${status.step} to step ${status.step - 1} of Prompters Anonymous.`,
     'Play the tape to the end with them, gently and briefly: ask what next week looks like if they step down, then next month, then six months from now.',
@@ -181,7 +181,7 @@ async function paCommand(io: Io, args: string): Promise<{ text: string }> {
   if (word === 'down') {
     if (status.step <= 1) return { text: "You're on step 1. There's nowhere lower to go, and nothing to prove. 💛" }
     if (!status.canStepDown) return { text: "You've already stepped down this week. Give this step a few more days. If today is just hard, try /pa rough-day." }
-    ask(io, tapePrompt(status, c.steps))
+    ask(io, tapePrompt(status))
     return { text: "Let's think this through together first." }
   }
   if (word === 'rough-day') {
