@@ -209,3 +209,65 @@ test('a step 1 user who has not admitted is asked for the admission once per ses
   }
   expect(asks).toBe(1)
 })
+
+const EDIT = { tool: 'Edit', file_path: '/tmp/x.ts', old_string: 'a', new_string: 'b' } as const
+const TURN_END = { answer: 'Done.', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' } as const
+
+// Hooks beneath the plugin: an edit tool, a turn end, and a prompt catcher.
+// The plugin submits the explain request without waiting, and it runs once the session is idle.
+// So each test settles the clock `seed` hands back before it looks at what was submitted.
+function explainHarness(on: On) {
+  const submitted: string[] = []
+  on('prompt.submit', async (_$, e) => {
+    submitted.push(e.text)
+    return { text: e.text, context: e.context }
+  })
+  on('tool.call', async () => ({ result: 'edited' }))
+  on('turn.complete', async (_$, e) => ({ text: e.answer }))
+  const explains = () => submitted.filter(t => t.includes('explain')).length
+  return { explains }
+}
+
+test('an edit on step 3 leads to an explain-it-back prompt at turn end', async ($, on) => {
+  const { explains } = explainHarness(on)
+  const { clock } = seed(on, 3)
+  await $.tool.call(EDIT)
+  await $.turn.complete(TURN_END)
+  await clock.settle()
+  expect(explains()).toBe(1)
+})
+
+test('one batch of edits is explained once, however many turns end', async ($, on) => {
+  const { explains } = explainHarness(on)
+  const { clock } = seed(on, 3)
+  await $.tool.call(EDIT)
+  await $.turn.complete(TURN_END)
+  await clock.settle()
+  await $.turn.complete({ ...TURN_END, turnId: 't2' })
+  await clock.settle()
+  expect(explains()).toBe(1)
+})
+
+test('no edit, no explain prompt', async ($, on) => {
+  const { explains } = explainHarness(on)
+  const { clock } = seed(on, 3)
+  await $.turn.complete(TURN_END)
+  await clock.settle()
+  expect(explains()).toBe(0)
+})
+
+test('edits on step 2 are not marked', async ($, on) => {
+  const { explains } = explainHarness(on)
+  const { clock } = seed(on, 2)
+  await $.tool.call(EDIT)
+  await $.turn.complete(TURN_END)
+  await clock.settle()
+  expect(explains()).toBe(0)
+})
+
+test('record_explanation rejects an unknown score', async ($, on) => {
+  explainHarness(on)
+  seed(on, 3)
+  const result = await $.tool.call({ tool: 'mcp__pa__record_explanation', score: 'perfect' })
+  expect(JSON.stringify(result)).toContain('clear, rough, or missed')
+})

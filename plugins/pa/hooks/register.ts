@@ -189,10 +189,15 @@ async function paTool(io: Io, e: { readonly tool: string }): Promise<string> {
       return recordScore(io, 'guess', e)
     case 'mcp__pa__record_admission':
       return recordAdmission(io, e)
+    case 'mcp__pa__record_explanation':
+      return recordScore(io, 'explanation', e)
     default:
       return `Unknown Prompters Anonymous tool: ${e.tool}.`
   }
 }
+
+const EXPLAIN_REQUEST =
+  'Step 3 check-in: you just changed code. Ask the user, in one short friendly line, to explain in a sentence or two what changed and why. Wait for their answer, then follow the step 3 instructions.'
 
 async function welcome(io: Io): Promise<string> {
   const { c, status } = await snapshot(io)
@@ -217,6 +222,11 @@ export const register: Register = on => {
       name: 'record_admission',
       description: "Prompters Anonymous: save the user's step 1 admission, in their exact words.",
       inputSchema: { type: 'object', properties: { words: { type: 'string' } }, required: ['words'] },
+    })
+    await $.tool.register({
+      name: 'record_explanation',
+      description: `Prompters Anonymous: record how well the user explained your code changes. Scores: ${EXPLANATION_SCORES.join(', ')}.`,
+      inputSchema: { type: 'object', properties: { score: { type: 'string', enum: [...EXPLANATION_SCORES] } }, required: ['score'] },
     })
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
@@ -289,7 +299,7 @@ export const register: Register = on => {
     return paCommand(io, e.args)
   }).catch(commandFailed)
 
-  on('tool.call', { tool: ['mcp__pa__record_setup', 'mcp__pa__record_guess', 'mcp__pa__record_admission'] }, async ($, e) => {
+  on('tool.call', { tool: ['mcp__pa__record_setup', 'mcp__pa__record_guess', 'mcp__pa__record_admission', 'mcp__pa__record_explanation'] }, async ($, e) => {
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
@@ -337,5 +347,35 @@ export const register: Register = on => {
     const added = buildContext({ status, steps: c.steps, reflectNow, mentionReady, explainPending, reflections })
     explainPending = false
     return next({ ...e, context: [...(e.context ?? []), ...added] })
+  }).catch(letThrough)
+
+  on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+      const io: Io = {
+        store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+        read: path => $.fs.read(path),
+        root: $.plugin.root,
+        sessionId: () => $.session.id(),
+        now: () => $.clock.now(),
+        redraw: () => $.ui.invalidate('ui.render'),
+        log: text => $.ui.log(text, { to: 'debug' }),
+        submit: text => $.prompt.submit({ text }),
+        after: (ms, run) => void $.clock.after(ms, run),
+      }
+      const { status } = await snapshot(io)
+      if (status.effectiveStep >= 3) explainPending = true
+    }
+    return ran
+  }).catch(letThrough)
+
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId === undefined && e.reason === 'answer' && explainPending) {
+      explainPending = false
+      $.prompt.submit({ text: EXPLAIN_REQUEST }).catch(() => {
+        explainPending = true
+      })
+    }
+    return next(e)
   }).catch(letThrough)
 }
