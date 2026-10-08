@@ -152,3 +152,14 @@ test('record_setup works after session.start and the band built the context firs
   expect(String(text)).toContain('ship without fear')
   expect(await bandText($)).toContain('Step 1 · Admit it')
 })
+
+test('/pa setup submits the setup prompt a moment later, not inside the command', async ($, on) => {
+  const { clock } = seed(on, 0)
+  const sent: string[] = []
+  on('prompt.submit', async (_$, e, next) => (sent.push(e.text), next(e)))
+  await pa($, 'setup')
+  expect(sent).toEqual([])
+  await clock.advance(100)
+  expect(sent).toEqual([SETUP_PROMPT])
+  expect(SETUP_PROMPT).toContain('mcp__pa__record_setup')
+})

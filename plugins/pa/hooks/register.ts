@@ -24,6 +24,8 @@ type Io = {
   log: (text: string) => void
   /** Submits a plugin prompt. It runs once the session is idle. */
   submit: (text: string) => Promise<unknown>
+  /** Runs `run` once, `ms` milliseconds later, on the engine's clock. */
+  after: (ms: number, run: () => void) => void
 }
 
 type Ctx = { steps: StepDef[]; record: EventRecord }
@@ -76,9 +78,17 @@ function fail(io: Io, where: string, error: unknown): void {
   io.redraw()
 }
 
-/** Submits a plugin prompt without waiting for it. A failure goes to `fail`. */
+/**
+ * How long `ask` waits before it submits. A prompt submitted from inside a
+ * command.run hook is refused (the hook holds the turn), so `ask` submits a moment later.
+ */
+const ASK_DELAY_MS = 50
+
+/** Submits a plugin prompt a moment later, without waiting for it. A failure goes to `fail`. */
 function ask(io: Io, text: string): void {
-  io.submit(text).catch(error => fail(io, 'prompt.submit', error))
+  io.after(ASK_DELAY_MS, () => {
+    io.submit(text).catch(error => fail(io, 'prompt.submit', error))
+  })
 }
 
 // The shared .catch handlers. Every hook below ends with one of them, by name:
@@ -182,6 +192,7 @@ export const register: Register = on => {
       redraw: () => $.ui.invalidate('ui.render'),
       log: text => $.ui.log(text, { to: 'debug' }),
       submit: text => $.prompt.submit({ text }),
+      after: (ms, run) => void $.clock.after(ms, run),
     }
     await ctx(io)
     await rollUp(io.store, await io.sessionId(), await io.now())
@@ -200,6 +211,7 @@ export const register: Register = on => {
       redraw: () => $.ui.invalidate('ui.render'),
       log: text => $.ui.log(text, { to: 'debug' }),
       submit: text => $.prompt.submit({ text }),
+      after: (ms, run) => void $.clock.after(ms, run),
     }
     reflectedThisSession = false
     readyMentioned = false
@@ -219,6 +231,7 @@ export const register: Register = on => {
       redraw: () => $.ui.invalidate('ui.render'),
       log: text => $.ui.log(text, { to: 'debug' }),
       submit: text => $.prompt.submit({ text }),
+      after: (ms, run) => void $.clock.after(ms, run),
     }
     if (lastLine === '') await snapshot(io)
     const { Text } = $.ui.resolve(e)
@@ -235,6 +248,7 @@ export const register: Register = on => {
       redraw: () => $.ui.invalidate('ui.render'),
       log: text => $.ui.log(text, { to: 'debug' }),
       submit: text => $.prompt.submit({ text }),
+      after: (ms, run) => void $.clock.after(ms, run),
     }
     return paCommand(io, e.args)
   }).catch(commandFailed)
@@ -249,6 +263,7 @@ export const register: Register = on => {
       redraw: () => $.ui.invalidate('ui.render'),
       log: text => $.ui.log(text, { to: 'debug' }),
       submit: text => $.prompt.submit({ text }),
+      after: (ms, run) => void $.clock.after(ms, run),
     }
     return { result: await paTool(io, e) }
   }).catch(toolFailed)
