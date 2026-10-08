@@ -30,7 +30,7 @@ const LADDER: ReadonlyMap<string, string> = new Map([
  * its `fs.read` from `ladder`. A test's own `$` has none of these, so the test
  * hooks the calls beneath the plugin instead. Call it before the first call on `$`.
  */
-const seed = (on: On, step: number, extra: PaEvent[] = [], ladder = LADDER): { store: Map<string, unknown>; clock: MockClock } => {
+const seed = (on: On, step: number, extra: PaEvent[] = [], ladder = LADDER): { store: Map<string, unknown>; clock: MockClock; scans: () => number } => {
   const now = Date.now()
   const clock = mock.clock(on, { now })
   const data = new Map<string, unknown>()
@@ -46,14 +46,16 @@ const seed = (on: On, step: number, extra: PaEvent[] = [], ladder = LADDER): { s
   on('store.get', async (_$, e) => ({ value: data.get(e.key) }))
   on('store.set', async (_$, e) => (data.set(e.key, JSON.parse(JSON.stringify(e.value))), { value: undefined }))
   on('store.delete', async (_$, e) => (data.delete(e.key), { value: undefined }))
-  on('store.keys', async () => ({ value: [...data.keys()] }))
+  // Each full read of the record starts with one keys call, so the test can count them.
+  let scans = 0
+  on('store.keys', async () => (scans++, { value: [...data.keys()] }))
   on('session.id', async () => ({ value: 'this-session' }))
   on('fs.read', async (_$, e) => {
     const text = [...ladder].find(([file]) => e.path.endsWith(`/${file}`))?.[1]
     if (text === undefined) throw new Error(`no such file: ${e.path}`)
     return { value: text }
   })
-  return { store: data, clock }
+  return { store: data, clock, scans: () => scans }
 }
 
 // What the user typing does: a command or prompt from the composer, the prompt box.
@@ -174,6 +176,19 @@ test('a prompt on step 2 carries the step 2 instructions, and no prompt text is 
   const stored = JSON.stringify([...store.values()])
   expect(stored).not.toContain('secret-token')
   expect(stored).toContain('"category":"debugging"')
+})
+
+test('a prompt reads the whole record once, even when it reflects', async ($, on) => {
+  on('prompt.submit', async (_$, e) => ({ text: e.text, context: e.context }))
+  const { scans } = seed(on, 1)
+  for (let i = 0; i < 9; i++) await userPrompt($, `ask ${i}`)
+  const before = scans()
+  // The tenth prompt saves the prompt and a reflection.
+  const result = await userPrompt($, 'ask 9')
+  expect((result.context ?? []).join('\n')).toContain('Reflect now')
+  expect(scans() - before).toBe(1)
+  // The band still counts the reflection that prompt saved.
+  expect(await bandText($)).toBe('Step 1 · Admit it · ▓▓▓░░░░░░░ 1/3')
 })
 
 test('the tenth prompt on step 1 asks Claude to reflect, once per session', async ($, on) => {

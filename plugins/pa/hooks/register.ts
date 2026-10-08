@@ -389,15 +389,24 @@ export const register: Register = on => {
       submit: text => $.prompt.submit({ text }),
       after: (ms, run) => void $.clock.after(ms, run),
     }
-    const { c, events, status } = await snapshot(io)
+    // This hook's one read of the record. The saves below add to it instead of reading it all again.
+    const { c, events, status, now } = await snapshot(io)
     if (!status.isSetUp) return next(e)
+    const seen = [...events]
+    const save = async (body: EventBody) => {
+      const event = makeEvent(now, body)
+      await c.record.add(event)
+      seen.push(event)
+    }
     // Count this prompt too, so the tenth prompt is the one that reflects.
-    const prompt = await addEvent(io, { kind: 'prompt', step: status.effectiveStep, category: categorize(e.text) })
-    const reflectNow = shouldReflect([...events, prompt], status.effectiveStep, reflectedThisSession)
+    await save({ kind: 'prompt', step: status.effectiveStep, category: categorize(e.text) })
+    const reflectNow = shouldReflect(seen, status.effectiveStep, reflectedThisSession)
     if (reflectNow) {
       reflectedThisSession = true
-      await addEvent(io, { kind: 'reflection' })
+      await save({ kind: 'reflection' })
     }
+    lastLine = stepLine(computeStatus(seen, c.steps, now), c.steps)
+    io.redraw()
     const mentionReady = status.isReady && !readyMentioned
     if (mentionReady) readyMentioned = true
     // buildContext asks for the admission whenever it sees 3 or more reflections. Show it 0 after the first ask, so the user is asked once per session.
