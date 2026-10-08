@@ -117,12 +117,12 @@ function commandFailed($: Engine, _e: unknown, next: Caught) {
   return { text: 'Prompters Anonymous hit a problem. Details are in the debug log (claude --debug).' }
 }
 
-const SETUP_PROMPT = [
+export const SETUP_PROMPT = [
   'Run the Prompters Anonymous setup with the user, warmly and briefly:',
   '1. Welcome them in one line. Everyone starts at step 1, and if they installed this, there is a reason.',
   '2. Ask why they installed it, in their own words. Examples: "I want to pass a system design interview", "I want to debug without panicking". Wait for the answer.',
   '3. Explain the log in two plain sentences: it saves the time, their step, and a rough category for each prompt. It never saves prompt text, and it stays on their machine.',
-  '4. Call the record_setup tool with their why, word for word.',
+  '4. Call the mcp__pa__record_setup tool with their why, word for word.',
   '5. Tell them step 1 asks nothing of them except to notice. The line above the prompt shows their progress.',
 ].join('\n')
 

@@ -1,5 +1,6 @@
 import { test, expect, mock, type Engine, type MockClock } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { SETUP_PROMPT } from './register.ts'
 import { makeEvent, type PaEvent } from '../src/events.ts'
 
 /** A stand-in for one step file, in the same format as steps/NN.md. */
@@ -133,4 +134,21 @@ test('record_setup twice does not reset progress', async ($, on) => {
   expect(JSON.stringify(result)).toContain('already')
   const { text } = await pa($)
   expect(String(text)).toContain('Step 2')
+})
+
+test('the setup prompt tells Claude to call the tool by its full name', () => {
+  expect(SETUP_PROMPT).toContain('mcp__pa__record_setup')
+})
+
+test('record_setup works after session.start and the band built the context first', async ($, on) => {
+  seed(on, 0)
+  on('ui.log', async () => ({ value: undefined }) as never)
+  on('command.register', async (_$, e) => ({ value: { command: e.name } }) as never)
+  on('tool.register', async (_$, e) => ({ value: { tool: e.name } }) as never)
+  await startSession($, on)
+  expect(await bandText($)).toContain('/pa setup')
+  await $.tool.call({ tool: 'mcp__pa__record_setup', why: 'ship without fear' })
+  const { text } = await pa($)
+  expect(String(text)).toContain('ship without fear')
+  expect(await bandText($)).toContain('Step 1 · Admit it')
 })
