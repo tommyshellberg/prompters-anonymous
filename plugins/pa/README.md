@@ -53,4 +53,4 @@ The log also keeps a few things you say on purpose:
 - your step 1 admission, in your own words
 - how each guess and each explanation was scored
 
-After 30 days, old prompt entries are folded into weekly totals. Only counts per category remain.
+Sessions older than 30 days are folded into weekly totals when you next start a session. For their prompts, only counts per category remain.

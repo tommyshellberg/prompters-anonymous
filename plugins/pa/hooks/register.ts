@@ -289,7 +289,7 @@ export const register: Register = on => {
       inputSchema: { type: 'object', properties: {} },
     })
     const io: Io = {
-      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
       root: $.plugin.root,
       sessionId: () => $.session.id(),
@@ -308,7 +308,7 @@ export const register: Register = on => {
   // /clear, /resume and /branch don't raise session.start again.
   on('classic.SessionStart', { source: ['clear', 'resume', 'fork'] }, async ($, e, next) => {
     const io: Io = {
-      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
       root: $.plugin.root,
       sessionId: () => $.session.id(),
@@ -330,7 +330,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const io: Io = {
-      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
       root: $.plugin.root,
       sessionId: () => $.session.id(),
@@ -347,7 +347,7 @@ export const register: Register = on => {
 
   on('command.run', { command: 'pa' }, async ($, e) => {
     const io: Io = {
-      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
       root: $.plugin.root,
       sessionId: () => $.session.id(),
@@ -362,7 +362,7 @@ export const register: Register = on => {
 
   on('tool.call', { tool: ['mcp__pa__record_setup', 'mcp__pa__record_guess', 'mcp__pa__record_admission', 'mcp__pa__record_explanation', 'mcp__pa__confirm_step_down'] }, async ($, e) => {
     const io: Io = {
-      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
       root: $.plugin.root,
       sessionId: () => $.session.id(),
@@ -379,7 +379,7 @@ export const register: Register = on => {
     // Our own prompts (setup, explain-it-back, play-the-tape) are not the user's asks.
     if (e.origin.kind === 'plugin' && e.origin.name === 'pa') return next(e)
     const io: Io = {
-      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
       root: $.plugin.root,
       sessionId: () => $.session.id(),
@@ -415,7 +415,7 @@ export const register: Register = on => {
     const ran = await next(e)
     if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
       const io: Io = {
-        store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+        store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), delete: key => $.store.delete(key), keys: () => $.store.keys() },
         read: path => $.fs.read(path),
         root: $.plugin.root,
         sessionId: () => $.session.id(),
