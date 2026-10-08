@@ -193,6 +193,16 @@ test('record_guess moves the step line', async ($, on) => {
   expect(String(text)).toContain('1/10')
 })
 
+test('a recording tool that cannot save answers calmly', async ($, on) => {
+  // A missing step file makes every recording tool fail.
+  const broken = new Map(LADDER)
+  broken.delete('steps/07.md')
+  seed(on, 2, [], broken)
+  const result = JSON.stringify(await $.tool.call({ tool: 'mcp__pa__record_guess', score: 'close' }))
+  expect(result).toContain("couldn't save this one")
+  expect(result).toContain("The user's code and chat are fine.")
+})
+
 test('record_guess rejects an unknown score', async ($, on) => {
   seed(on, 2)
   const result = await $.tool.call({ tool: 'mcp__pa__record_guess', score: 'amazing' })

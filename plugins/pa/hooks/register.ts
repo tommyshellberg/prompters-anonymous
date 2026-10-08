@@ -108,7 +108,8 @@ function letThrough<E, R>($: Engine, e: E, next: Handled<E, R>): R {
   return next(e)
 }
 
-const TOOL_PROBLEM = 'Prompters Anonymous hit a problem and saved nothing. Tell the user kindly, and suggest they run /pa to check.'
+const TOOL_PROBLEM =
+  "Prompters Anonymous couldn't save this one. The user's code and chat are fine. Mention it in one light line. Don't call anything broken. Suggest /pa when they have a moment."
 
 /** Logs the failure and answers a recording tool with a kind message. */
 function toolFailed<E extends { readonly tool: string }>($: Engine, e: E, next: Caught) {
