@@ -2,6 +2,7 @@ import { test, expect, mock, type Engine, type MockClock } from 'claude-code/tes
 import type { On } from 'claude-code'
 import { SETUP_PROMPT } from './register.ts'
 import { makeEvent, type PaEvent } from '../src/events.ts'
+import { EXPLAIN_FIRST } from '../src/context.ts'
 
 /** A stand-in for one step file, in the same format as steps/NN.md. */
 const stepFile = (number: number, name: string, measure: string, window: number, need: number, body = '') =>
@@ -262,6 +263,19 @@ test('edits on step 2 are not marked', async ($, on) => {
   await $.tool.call(EDIT)
   await $.turn.complete(TURN_END)
   await clock.settle()
+  expect(explains()).toBe(0)
+})
+
+test('/clear drops an edit the user was never asked to explain', async ($, on) => {
+  const { explains } = explainHarness(on)
+  on('classic.SessionStart', async () => ({}))
+  on('ui.log', async () => ({ value: undefined }) as never)
+  seed(on, 3)
+  // The turn with the edit is interrupted: no turn end, so the explain request is still waiting.
+  await $.tool.call(EDIT)
+  await $.classic.SessionStart({ source: 'clear' })
+  const result = await userPrompt($, 'start something new')
+  expect((result.context ?? []).join('\n')).not.toContain(EXPLAIN_FIRST)
   expect(explains()).toBe(0)
 })
 

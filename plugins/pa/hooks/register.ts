@@ -315,6 +315,7 @@ export const register: Register = on => {
     reflectedThisSession = false
     readyMentioned = false
     admissionAsked = false
+    explainPending = false
     $.ui.log(await welcome(io))
     return next(e)
   }).catch(letThrough)
