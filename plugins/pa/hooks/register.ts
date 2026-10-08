@@ -137,6 +137,21 @@ export const SETUP_PROMPT = [
   '5. Tell them step 1 asks nothing of them except to notice. The line above the prompt shows their progress.',
 ].join('\n')
 
+const tapePrompt = (status: Status, steps: readonly StepDef[]) =>
+  [
+    `The user asked to step down from step ${status.step} to step ${status.step - 1} of Prompters Anonymous.`,
+    'Play the tape to the end with them, gently and briefly: ask what next week looks like if they step down, then next month, then six months from now.',
+    `Remind them why they started, in their words: "${status.why}".`,
+    'Then let them decide. Both choices are fine; say so. If they still want to step down, call confirm_step_down. If not, encourage them.',
+  ].join('\n')
+
+const tooManyRoughDaysPrompt = (status: Status) =>
+  [
+    `The user has taken ${status.roughDaysThisWeek} rough days this week in Prompters Anonymous.`,
+    `Gently, with no judgment, play the tape with them: what does the next month look like at this pace? Remind them of their why: "${status.why}".`,
+    'Then ask whether stepping down one step for a while might fit better. It is a question, not a rule. If they say yes, call confirm_step_down.',
+  ].join('\n')
+
 /** `/pa <word>`: the report, setup, and (from Task 12) up, down and rough-day. */
 async function paCommand(io: Io, args: string): Promise<{ text: string }> {
   const word = args.trim().toLowerCase()
@@ -147,6 +162,29 @@ async function paCommand(io: Io, args: string): Promise<{ text: string }> {
     return { text: 'Welcome to Prompters Anonymous. 💛' }
   }
   if (word === '' || word === 'step') return { text: report(status, c.steps, events, now) }
+  if (word === 'up') {
+    if (!status.isReady) {
+      const p = status.progress
+      return { text: `Not yet. ${stepLine(status, c.steps)}${p ? `\nYou need ${p.need} of the last ${p.window}.` : ''}\nYou're doing the work. Keep going. 💛` }
+    }
+    await addEvent(io, { kind: 'step', to: status.step + 1, how: 'up' })
+    const next = c.steps.find(s => s.number === status.step + 1)
+    return { text: `🪙 Step ${status.step} coin earned.\n\nWelcome to step ${status.step + 1}: ${next?.name}.\n${next?.line ?? ''}` }
+  }
+  if (word === 'down') {
+    if (status.step <= 1) return { text: "You're on step 1. There's nowhere lower to go, and nothing to prove. 💛" }
+    if (!status.canStepDown) return { text: "You've already stepped down this week. Give this step a few more days. If today is just hard, try /pa rough-day." }
+    ask(io, tapePrompt(status, c.steps))
+    return { text: "Let's think this through together first." }
+  }
+  if (word === 'rough-day') {
+    if (status.effectiveStep === 1 && !status.isRoughDay) return { text: 'Step 1 is already gentle. Take care of yourself today. 💛' }
+    if (status.isRoughDay) return { text: "You're already on a rough-day pass. It ends at midnight." }
+    await addEvent(io, { kind: 'rough-day' })
+    const after = (await snapshot(io)).status
+    if (after.roughDaysThisWeek >= 3) ask(io, tooManyRoughDaysPrompt(after))
+    return { text: `Rough day. You're at step ${after.effectiveStep} until midnight.\n\nRemember why you started: "${after.why}"\nYou got this. 💛` }
+  }
   return { text: `Unknown word "${word}". Try /pa, /pa setup, /pa up, /pa down, or /pa rough-day.` }
 }
 
@@ -180,6 +218,14 @@ async function recordAdmission(io: Io, input: object): Promise<string> {
   return 'Saved. Step 1 is complete. The user can run /pa up when they are ready.'
 }
 
+async function confirmStepDown(io: Io): Promise<string> {
+  const { status } = await snapshot(io)
+  if (status.step <= 1) return 'The user is on step 1. Nothing to step down from.'
+  if (!status.canStepDown) return 'Not allowed: the user already stepped down this week.'
+  await addEvent(io, { kind: 'step', to: status.step - 1, how: 'down' })
+  return `Done. The user is on step ${status.step - 1}. Their progress on step ${status.step} is saved for when they return.`
+}
+
 /** One hook answers every recording tool. Each task adds its tool here and to the hook's matcher. */
 async function paTool(io: Io, e: { readonly tool: string }): Promise<string> {
   switch (e.tool) {
@@ -191,6 +237,8 @@ async function paTool(io: Io, e: { readonly tool: string }): Promise<string> {
       return recordAdmission(io, e)
     case 'mcp__pa__record_explanation':
       return recordScore(io, 'explanation', e)
+    case 'mcp__pa__confirm_step_down':
+      return confirmStepDown(io)
     default:
       return `Unknown Prompters Anonymous tool: ${e.tool}.`
   }
@@ -227,6 +275,11 @@ export const register: Register = on => {
       name: 'record_explanation',
       description: `Prompters Anonymous: record how well the user explained your code changes. Scores: ${EXPLANATION_SCORES.join(', ')}.`,
       inputSchema: { type: 'object', properties: { score: { type: 'string', enum: [...EXPLANATION_SCORES] } }, required: ['score'] },
+    })
+    await $.tool.register({
+      name: 'confirm_step_down',
+      description: 'Prompters Anonymous: step the user down one step. Call only after playing the tape to the end with them and they still want it.',
+      inputSchema: { type: 'object', properties: {} },
     })
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
@@ -299,7 +352,7 @@ export const register: Register = on => {
     return paCommand(io, e.args)
   }).catch(commandFailed)
 
-  on('tool.call', { tool: ['mcp__pa__record_setup', 'mcp__pa__record_guess', 'mcp__pa__record_admission', 'mcp__pa__record_explanation'] }, async ($, e) => {
+  on('tool.call', { tool: ['mcp__pa__record_setup', 'mcp__pa__record_guess', 'mcp__pa__record_admission', 'mcp__pa__record_explanation', 'mcp__pa__confirm_step_down'] }, async ($, e) => {
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
       read: path => $.fs.read(path),

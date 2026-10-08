@@ -271,3 +271,86 @@ test('record_explanation rejects an unknown score', async ($, on) => {
   const result = await $.tool.call({ tool: 'mcp__pa__record_explanation', score: 'perfect' })
   expect(JSON.stringify(result)).toContain('clear, rough, or missed')
 })
+
+test('/pa up refuses when not ready', async ($, on) => {
+  seed(on, 2)
+  const { text } = await pa($, 'up')
+  expect(String(text)).toContain('Not yet')
+})
+
+test('/pa up moves up when ready', async ($, on) => {
+  seed(on, 1)
+  // Step 1 is ready on the admission alone. Reflections only fill the bar.
+  await $.tool.call({ tool: 'mcp__pa__record_admission', words: 'I hand everything to AI' })
+  const { text } = await pa($, 'up')
+  expect(String(text)).toContain('Welcome to step 2')
+  const after = await pa($)
+  expect(String(after.text)).toContain('Step 2 · Guess first')
+})
+
+test('/pa down on step 1 explains kindly and changes nothing', async ($, on) => {
+  seed(on, 1)
+  const { text } = await pa($, 'down')
+  expect(String(text)).toContain('step 1')
+})
+
+test('confirm_step_down moves down one step, once a week', async ($, on) => {
+  seed(on, 3)
+  await $.tool.call({ tool: 'mcp__pa__confirm_step_down' })
+  const second = await $.tool.call({ tool: 'mcp__pa__confirm_step_down' })
+  expect(JSON.stringify(second)).toContain('week')
+  const { text } = await pa($)
+  expect(String(text)).toContain('Step 2')
+})
+
+test('/pa rough-day drops one step for today', async ($, on) => {
+  seed(on, 3)
+  const { text } = await pa($, 'rough-day')
+  expect(String(text)).toContain('debug without panicking')
+  const after = await pa($)
+  expect(String(after.text)).toContain('Rough day')
+})
+
+test('/pa rough-day on step 1 records nothing', async ($, on) => {
+  const { store } = seed(on, 1)
+  await pa($, 'rough-day')
+  const stored = JSON.stringify([...store.values()])
+  expect(stored).not.toContain('rough-day')
+})
+
+// `ask` submits the prompt 50 ms later (a command hook may not submit inside itself).
+// So these tests move the clock `seed` hands back before they look at what was sent.
+const DAY = 24 * 60 * 60 * 1000
+const roughDaysAgo = (...days: number[]) => days.map(d => makeEvent(Date.now() - d * DAY, { kind: 'rough-day' }))
+
+test('/pa down starts the play-the-tape turn a moment later, not inside the command', async ($, on) => {
+  const { clock } = seed(on, 3)
+  const sent: string[] = []
+  on('prompt.submit', async (_$, e, next) => (sent.push(e.text), next(e)))
+  await pa($, 'down')
+  expect(sent).toEqual([])
+  await clock.advance(100)
+  expect(sent.length).toBe(1)
+  expect(sent[0]).toContain('step 3 to step 2')
+  expect(sent[0]).toContain('confirm_step_down')
+})
+
+test('the third rough day this week starts a gentle turn, the second does not', async ($, on) => {
+  const { clock } = seed(on, 3, roughDaysAgo(2, 3))
+  const sent: string[] = []
+  on('prompt.submit', async (_$, e, next) => (sent.push(e.text), next(e)))
+  await pa($, 'rough-day')
+  expect(sent).toEqual([])
+  await clock.advance(100)
+  expect(sent.length).toBe(1)
+  expect(sent[0]).toContain('3 rough days this week')
+})
+
+test('the second rough day this week starts no turn', async ($, on) => {
+  const { clock } = seed(on, 3, roughDaysAgo(2))
+  const sent: string[] = []
+  on('prompt.submit', async (_$, e, next) => (sent.push(e.text), next(e)))
+  await pa($, 'rough-day')
+  await clock.advance(100)
+  expect(sent).toEqual([])
+})
