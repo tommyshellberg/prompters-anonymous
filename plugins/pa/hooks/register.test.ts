@@ -355,3 +355,18 @@ test('the second rough day this week starts no turn', async ($, on) => {
   await clock.advance(100)
   expect(sent).toEqual([])
 })
+
+const SET_UP_FIRST = 'Run /pa setup first. It takes a minute. 💛'
+
+test('/pa rough-day before setup stores nothing and asks for setup', async ($, on) => {
+  const { store } = seed(on, 0)
+  const { text } = await pa($, 'rough-day')
+  expect(text).toBe(SET_UP_FIRST)
+  expect(JSON.stringify([...store.values()])).not.toContain('rough-day')
+})
+
+test('/pa up and /pa down before setup ask for setup', async ($, on) => {
+  seed(on, 0)
+  expect((await pa($, 'up')).text).toBe(SET_UP_FIRST)
+  expect((await pa($, 'down')).text).toBe(SET_UP_FIRST)
+})

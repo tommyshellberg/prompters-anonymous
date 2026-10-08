@@ -162,6 +162,7 @@ async function paCommand(io: Io, args: string): Promise<{ text: string }> {
     return { text: 'Welcome to Prompters Anonymous. 💛' }
   }
   if (word === '' || word === 'step') return { text: report(status, c.steps, events, now) }
+  if (!status.isSetUp) return { text: 'Run /pa setup first. It takes a minute. 💛' }
   if (word === 'up') {
     if (!status.isReady) {
       const p = status.progress
