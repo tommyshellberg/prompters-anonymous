@@ -159,11 +159,35 @@ async function recordSetup(io: Io, input: object): Promise<string> {
   return 'Saved. The user is on step 1: Admit it.'
 }
 
+const SCORES = { guess: GUESS_SCORES, explanation: EXPLANATION_SCORES } as const
+const orList = (words: readonly string[]) => `${words.slice(0, -1).join(', ')}, or ${words[words.length - 1]}`
+
+/** A recording tool that takes one score from a fixed list. */
+async function recordScore(io: Io, kind: keyof typeof SCORES, input: object): Promise<string> {
+  const scores: readonly string[] = SCORES[kind]
+  const score = (input as { score?: unknown }).score
+  if (typeof score !== 'string' || !scores.includes(score)) return `Score must be one of ${orList(scores)}.`
+  // Safe: `score` was just checked against this kind's own list.
+  await addEvent(io, { kind, score } as EventBody)
+  return `Recorded: ${score}.`
+}
+
+async function recordAdmission(io: Io, input: object): Promise<string> {
+  const words = String((input as { words?: unknown }).words ?? '').trim()
+  if (words === '') return 'No words given. Ask the user to say it in their own words.'
+  await addEvent(io, { kind: 'admission', words })
+  return 'Saved. Step 1 is complete. The user can run /pa up when they are ready.'
+}
+
 /** One hook answers every recording tool. Each task adds its tool here and to the hook's matcher. */
 async function paTool(io: Io, e: { readonly tool: string }): Promise<string> {
   switch (e.tool) {
     case 'mcp__pa__record_setup':
       return recordSetup(io, e)
+    case 'mcp__pa__record_guess':
+      return recordScore(io, 'guess', e)
+    case 'mcp__pa__record_admission':
+      return recordAdmission(io, e)
     default:
       return `Unknown Prompters Anonymous tool: ${e.tool}.`
   }
@@ -182,6 +206,16 @@ export const register: Register = on => {
       name: 'record_setup',
       description: "Prompters Anonymous: save the user's reason for starting, in their own words, and start step 1. Call once, after the user tells you their why.",
       inputSchema: { type: 'object', properties: { why: { type: 'string' } }, required: ['why'] },
+    })
+    await $.tool.register({
+      name: 'record_guess',
+      description: `Prompters Anonymous: record how close the user's guess was, after you answer. Scores: ${GUESS_SCORES.join(', ')}.`,
+      inputSchema: { type: 'object', properties: { score: { type: 'string', enum: [...GUESS_SCORES] } }, required: ['score'] },
+    })
+    await $.tool.register({
+      name: 'record_admission',
+      description: "Prompters Anonymous: save the user's step 1 admission, in their exact words.",
+      inputSchema: { type: 'object', properties: { words: { type: 'string' } }, required: ['words'] },
     })
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
@@ -253,7 +287,7 @@ export const register: Register = on => {
     return paCommand(io, e.args)
   }).catch(commandFailed)
 
-  on('tool.call', { tool: ['mcp__pa__record_setup'] }, async ($, e) => {
+  on('tool.call', { tool: ['mcp__pa__record_setup', 'mcp__pa__record_guess', 'mcp__pa__record_admission'] }, async ($, e) => {
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
@@ -267,4 +301,35 @@ export const register: Register = on => {
     }
     return { result: await paTool(io, e) }
   }).catch(toolFailed)
+
+  on('prompt.submit', async ($, e, next) => {
+    // Our own prompts (setup, explain-it-back, play-the-tape) are not the user's asks.
+    if (e.origin.kind === 'plugin' && e.origin.name === 'pa') return next(e)
+    const io: Io = {
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      read: path => $.fs.read(path),
+      root: $.plugin.root,
+      sessionId: () => $.session.id(),
+      now: () => $.clock.now(),
+      redraw: () => $.ui.invalidate('ui.render'),
+      log: text => $.ui.log(text, { to: 'debug' }),
+      submit: text => $.prompt.submit({ text }),
+      after: (ms, run) => void $.clock.after(ms, run),
+    }
+    const { c, events, status } = await snapshot(io)
+    if (!status.isSetUp) return next(e)
+    // Count this prompt too, so the tenth prompt is the one that reflects.
+    const prompt = await addEvent(io, { kind: 'prompt', step: status.effectiveStep, category: categorize(e.text) })
+    const reflectNow = shouldReflect([...events, prompt], status.effectiveStep, reflectedThisSession)
+    if (reflectNow) {
+      reflectedThisSession = true
+      await addEvent(io, { kind: 'reflection' })
+    }
+    const mentionReady = status.isReady && !readyMentioned
+    if (mentionReady) readyMentioned = true
+    const reflections = events.filter(ev => ev.kind === 'reflection').length + (reflectNow ? 1 : 0)
+    const added = buildContext({ status, steps: c.steps, reflectNow, mentionReady, explainPending, reflections })
+    explainPending = false
+    return next({ ...e, context: [...(e.context ?? []), ...added] })
+  }).catch(letThrough)
 }

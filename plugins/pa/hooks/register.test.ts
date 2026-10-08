@@ -163,3 +163,37 @@ test('/pa setup submits the setup prompt a moment later, not inside the command'
   expect(sent).toEqual([SETUP_PROMPT])
   expect(SETUP_PROMPT).toContain('mcp__pa__record_setup')
 })
+
+// A test registers its own hooks before its first call on `$`: the plugins load at that call.
+test('a prompt on step 2 carries the step 2 instructions, and no prompt text is stored', async ($, on) => {
+  on('prompt.submit', async (_$, e) => ({ text: e.text, context: e.context }))
+  const { store } = seed(on, 2)
+  const result = await userPrompt($, 'why is my secret-token test failing?')
+  expect((result.context ?? []).join('\n')).toContain('guess')
+  const stored = JSON.stringify([...store.values()])
+  expect(stored).not.toContain('secret-token')
+  expect(stored).toContain('"category":"debugging"')
+})
+
+test('the tenth prompt on step 1 asks Claude to reflect, once per session', async ($, on) => {
+  on('prompt.submit', async (_$, e) => ({ text: e.text, context: e.context }))
+  seed(on, 1)
+  const results = []
+  for (let i = 0; i < 25; i++) results.push(await userPrompt($, `ask ${i}`))
+  const reflects = results.map(r => (r.context ?? []).join('\n').includes('Reflect now'))
+  expect(reflects.indexOf(true)).toBe(9) // the tenth prompt, counting from 0
+  expect(reflects.filter(Boolean).length).toBe(1)
+})
+
+test('record_guess moves the step line', async ($, on) => {
+  seed(on, 2)
+  await $.tool.call({ tool: 'mcp__pa__record_guess', score: 'close' })
+  const { text } = await pa($)
+  expect(String(text)).toContain('1/10')
+})
+
+test('record_guess rejects an unknown score', async ($, on) => {
+  seed(on, 2)
+  const result = await $.tool.call({ tool: 'mcp__pa__record_guess', score: 'amazing' })
+  expect(JSON.stringify(result)).toContain('close, partly, off, or skipped')
+})
