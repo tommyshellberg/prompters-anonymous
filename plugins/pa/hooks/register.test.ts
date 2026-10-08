@@ -112,3 +112,25 @@ test('a missing step file shows the needs-a-look line', async ($, on) => {
   await startSession($, on)
   expect(await bandText($)).toBe('Prompters Anon needs a look, run /pa')
 })
+
+test('/pa shows the report with the why first', async ($, on) => {
+  seed(on, 2)
+  const { text } = await pa($)
+  expect(String(text).split('\n')[0]).toContain('debug without panicking')
+})
+
+test('record_setup starts step 1 and keeps the why', async ($, on) => {
+  seed(on, 0)
+  await $.tool.call({ tool: 'mcp__pa__record_setup', why: 'pass a system design interview' })
+  const { text } = await pa($)
+  expect(String(text)).toContain('pass a system design interview')
+  expect(String(text)).toContain('Step 1 · Admit it')
+})
+
+test('record_setup twice does not reset progress', async ($, on) => {
+  seed(on, 2)
+  const result = await $.tool.call({ tool: 'mcp__pa__record_setup', why: 'again' })
+  expect(JSON.stringify(result)).toContain('already')
+  const { text } = await pa($)
+  expect(String(text)).toContain('Step 2')
+})

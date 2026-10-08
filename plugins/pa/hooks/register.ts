@@ -117,6 +117,48 @@ function commandFailed($: Engine, _e: unknown, next: Caught) {
   return { text: 'Prompters Anonymous hit a problem. Details are in the debug log (claude --debug).' }
 }
 
+const SETUP_PROMPT = [
+  'Run the Prompters Anonymous setup with the user, warmly and briefly:',
+  '1. Welcome them in one line. Everyone starts at step 1, and if they installed this, there is a reason.',
+  '2. Ask why they installed it, in their own words. Examples: "I want to pass a system design interview", "I want to debug without panicking". Wait for the answer.',
+  '3. Explain the log in two plain sentences: it saves the time, their step, and a rough category for each prompt. It never saves prompt text, and it stays on their machine.',
+  '4. Call the record_setup tool with their why, word for word.',
+  '5. Tell them step 1 asks nothing of them except to notice. The line above the prompt shows their progress.',
+].join('\n')
+
+/** `/pa <word>`: the report, setup, and (from Task 12) up, down and rough-day. */
+async function paCommand(io: Io, args: string): Promise<{ text: string }> {
+  const word = args.trim().toLowerCase()
+  const { c, events, status, now } = await snapshot(io)
+  if (word === 'setup') {
+    if (status.isSetUp) return { text: `You're already set up.\n\n${report(status, c.steps, events, now)}` }
+    ask(io, SETUP_PROMPT)
+    return { text: 'Welcome to Prompters Anonymous. 💛' }
+  }
+  if (word === '' || word === 'step') return { text: report(status, c.steps, events, now) }
+  return { text: `Unknown word "${word}". Try /pa, /pa setup, /pa up, /pa down, or /pa rough-day.` }
+}
+
+async function recordSetup(io: Io, input: object): Promise<string> {
+  const { status } = await snapshot(io)
+  if (status.isSetUp) return 'The user is already set up. Nothing was changed.'
+  const why = String((input as { why?: unknown }).why ?? '').trim()
+  if (why === '') return 'No why was given. Ask the user for it, then call again.'
+  await addEvent(io, { kind: 'setup', why })
+  await addEvent(io, { kind: 'step', to: 1, how: 'setup' })
+  return 'Saved. The user is on step 1: Admit it.'
+}
+
+/** One hook answers every recording tool. Each task adds its tool here and to the hook's matcher. */
+async function paTool(io: Io, e: { readonly tool: string }): Promise<string> {
+  switch (e.tool) {
+    case 'mcp__pa__record_setup':
+      return recordSetup(io, e)
+    default:
+      return `Unknown Prompters Anonymous tool: ${e.tool}.`
+  }
+}
+
 async function welcome(io: Io): Promise<string> {
   const { c, status } = await snapshot(io)
   return status.isSetUp ? meetingLine(status, c.steps) : 'Prompters Anonymous is installed. Run /pa setup when you are ready.'
@@ -124,7 +166,13 @@ async function welcome(io: Io): Promise<string> {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    // Registrations go here, first, in Tasks 9 to 12.
+    // Registrations first, before anything that can fail, so /pa works even when a step file is broken.
+    await $.command.register({ name: 'pa', description: 'Prompters Anonymous: your step and progress', argumentHint: '[setup | up | down | rough-day]' })
+    await $.tool.register({
+      name: 'record_setup',
+      description: "Prompters Anonymous: save the user's reason for starting, in their own words, and start step 1. Call once, after the user tells you their why.",
+      inputSchema: { type: 'object', properties: { why: { type: 'string' } }, required: ['why'] },
+    })
     const io: Io = {
       store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
       read: path => $.fs.read(path),
@@ -176,4 +224,32 @@ export const register: Register = on => {
     const { Text } = $.ui.resolve(e)
     return Text({ dimColor: true, wrap: 'truncate-end', children: [lastLine] })
   }).catch(($, e, next) => next(e))
+
+  on('command.run', { command: 'pa' }, async ($, e) => {
+    const io: Io = {
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      read: path => $.fs.read(path),
+      root: $.plugin.root,
+      sessionId: () => $.session.id(),
+      now: () => $.clock.now(),
+      redraw: () => $.ui.invalidate('ui.render'),
+      log: text => $.ui.log(text, { to: 'debug' }),
+      submit: text => $.prompt.submit({ text }),
+    }
+    return paCommand(io, e.args)
+  }).catch(commandFailed)
+
+  on('tool.call', { tool: ['mcp__pa__record_setup'] }, async ($, e) => {
+    const io: Io = {
+      store: { get: key => $.store.get(key), set: (key, value) => $.store.set(key, value), keys: () => $.store.keys() },
+      read: path => $.fs.read(path),
+      root: $.plugin.root,
+      sessionId: () => $.session.id(),
+      now: () => $.clock.now(),
+      redraw: () => $.ui.invalidate('ui.render'),
+      log: text => $.ui.log(text, { to: 'debug' }),
+      submit: text => $.prompt.submit({ text }),
+    }
+    return { result: await paTool(io, e) }
+  }).catch(toolFailed)
 }
